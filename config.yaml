@@ -1,0 +1,11 @@
+smart_home:
+  platform: SmartThings
+
+  smartthings:
+    api_key: 
+
+controller:
+  sync_interval_seconds: 60
+
+log:
+  filters: info

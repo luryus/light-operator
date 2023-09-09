@@ -18,26 +18,27 @@ pub struct Color {
     namespaced
 )]
 #[kube(status = "LightStatus")]
+#[serde(rename_all = "camelCase")]
 pub struct LightSpec {
     /// Device id
-    device_id: String,
+    pub device_id: String,
     // Is the light on or off
-    active: bool,
+    pub active: bool,
 
     // RGB color
-    color: Option<Color>,
+    pub color: Option<Color>,
     // Color temperature in Kelvin,
     #[schemars(range(min = 1, max = 60_000))]
-    color_temperature: Option<u16>,
+    pub color_temperature: Option<u16>,
     // Brightness 0-1
     #[schemars(range(min = 0, max = 1))]
-    brightness: Option<f32>,
+    pub brightness: Option<f32>,
 }
 
 #[derive(Deserialize, Serialize, Clone, Debug, JsonSchema)]
 pub struct LightStatus {
-    active: bool,
-    color: Option<Color>,
-    color_temperature: Option<u16>,
-    brightness: Option<f32>,
+    pub active: bool,
+    pub color: Option<Color>,
+    pub color_temperature: Option<u16>,
+    pub brightness: Option<f32>,
 }
