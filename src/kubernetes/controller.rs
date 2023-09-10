@@ -48,9 +48,9 @@ pub async fn run(
 
 pub async fn reconcile(light: Arc<Light>, ctx: Arc<Context>) -> Result<Action, Error> {
     tracing::info!(
-        "Reconciling {:?}/{:?}",
-        &light.metadata.namespace,
-        &light.metadata.name
+        "Reconciling {}/{}",
+        light.metadata.namespace.as_ref().unwrap(),
+        light.metadata.name.as_ref().unwrap()
     );
 
     // Get status
@@ -73,6 +73,26 @@ pub async fn reconcile(light: Arc<Light>, ctx: Arc<Context>) -> Result<Action, E
                     .await?;
             }
         }
+
+        if let Some(target_temp) = light.spec.color_temperature {
+            if Some(target_temp) != light_options.color_temperature {
+                tracing::info!("Setting color temperature to {target_temp} K");
+                ctx.smart_home_api
+                    .set_color_temperature(id, target_temp)
+                    .await?;
+            }
+        }
+
+        if let Some(target_color) = &light.spec.color {
+            if Some(target_color.hue) != light_options.color.as_ref().map(|x| x.hue)
+                || Some(target_color.saturation) != light_options.color.as_ref().map(|x| x.saturation)
+            {
+                tracing::info!("Setting color to {target_color}");
+                ctx.smart_home_api
+                    .set_color(id, target_color.hue, target_color.saturation)
+                    .await?;
+            }
+        }
     }
 
     Ok(Action::requeue(Duration::from_secs(
@@ -81,6 +101,7 @@ pub async fn reconcile(light: Arc<Light>, ctx: Arc<Context>) -> Result<Action, E
 }
 
 pub fn error_policy(_light: Arc<Light>, err: &Error, _ctx: Arc<Context>) -> Action {
-    tracing::error!("Error: {}", err);
+    let err_ref: &(dyn std::error::Error + Send + Sync) = err;
+    tracing::error!(error = err_ref, "Reconciler error");
     Action::requeue(Duration::from_secs(5))
 }

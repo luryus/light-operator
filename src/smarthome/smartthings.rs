@@ -1,14 +1,8 @@
 use std::{sync::Arc, time::Duration};
 
-use anyhow::{bail, Error};
+use api_models::*;
 use async_trait::async_trait;
-use reqwest::{
-    header::{HeaderMap, HeaderValue},
-    Client, Response, StatusCode, Url,
-};
-use serde::Deserialize;
-use serde_flat_path::flat_path;
-use serde_json::json;
+use reqwest::{header::HeaderMap, Client, Response, Url};
 use time::OffsetDateTime;
 use uuid::Uuid;
 
@@ -21,9 +15,39 @@ const APP_USER_AGENT: &str = concat!(env!("CARGO_PKG_NAME"), "/", env!("CARGO_PK
 const API_BASE_URL: &str = "https://api.smartthings.com/v1/";
 
 pub struct SmartThings {
-    config: Arc<Config>,
+    _config: Arc<Config>,
     client: Client,
     base_url: Url,
+}
+
+macro_rules! command_json {
+    ($cap:literal, $cmd:expr, $args:tt) => {
+        serde_json::json!({
+            "commands": [{
+                "component": "main",
+                "capability": $cap,
+                "command": $cmd,
+                "arguments": $args
+            }]
+        })
+    };
+    ($cap:literal, $cmd:expr) => {
+        serde_json::json!({
+            "commands": [{
+                "component": "main",
+                "capability": $cap,
+                "command": $cmd,
+                "arguments": []
+            }]
+        })
+    };
+}
+
+fn is_recent(ts: Option<OffsetDateTime>) -> bool {
+    match ts {
+        None => false,
+        Some(t) => (OffsetDateTime::now_utc() - t) <= time::Duration::minutes(10),
+    }
 }
 
 impl SmartThings {
@@ -52,7 +76,7 @@ impl SmartThings {
         let base_url = API_BASE_URL.try_into().unwrap();
 
         Ok(Self {
-            config,
+            _config: config,
             client,
             base_url,
         })
@@ -72,29 +96,25 @@ impl SmartThings {
         Ok(res.error_for_status()?)
     }
 
-    async fn ping(&self, id: &str) -> super::Result<()> {
+    async fn send_command(&self, id: &str, cmd: serde_json::Value) -> super::Result<()> {
         Self::validate_device_id(id)?;
 
-        tracing::info!("Pinging device {id}");
+        tracing::debug!(device_id = id, command = cmd.to_string(), "Sending command");
 
         let url = self
             .base_url
             .join(&format!("devices/{id}/commands"))
             .map_err(|_| super::Error::InvalidId(id.to_string()))?;
 
-        let body = json!({
-            "commands": [{
-                "component": "main",
-                "capability": "healthCheck",
-                "command": "ping",
-                "arguments": []
-            }]
-        });
-
-        let res = self.client.post(url).json(&body).send().await?;
+        let res = self.client.post(url).json(&cmd).send().await?;
 
         Self::error_from_status(res)?;
         Ok(())
+    }
+
+    async fn ping(&self, id: &str) -> super::Result<()> {
+        let cmd = command_json!("healthCheck", "ping");
+        self.send_command(id, cmd).await
     }
 }
 
@@ -105,7 +125,7 @@ impl SmartHomeApi for SmartThings {
         self.ping(id).await?;
         tokio::time::sleep(Duration::from_millis(200)).await;
 
-        tracing::info!("Getting status for device {id}");
+        tracing::debug!("Getting status for device {id}");
 
         let url = self
             .base_url
@@ -116,7 +136,7 @@ impl SmartHomeApi for SmartThings {
 
         let body: DeviceStatus = Self::error_from_status(res)?.json().await?;
 
-        tracing::info!("Got status {body:#?}");
+        tracing::debug!("Got status {body:#?}");
 
         let online = body
             .main_component
@@ -132,6 +152,7 @@ impl SmartHomeApi for SmartThings {
         let switched_on = body
             .main_component
             .switch
+            //.filter(|x| is_recent(x.timestamp))
             .and_then(|x| x.value)
             .map(|x| x == SwitchState::On)
             .unwrap_or(false);
@@ -139,20 +160,26 @@ impl SmartHomeApi for SmartThings {
         let brightness = body
             .main_component
             .switch_level
+            //.filter(|x| is_recent(x.timestamp))
             .map(|x| (x.value as f32 / 100f32).clamp(0.0, 1.0));
 
         let color_temperature = body
             .main_component
             .color_temperature
+            //.filter(|x| is_recent(x.timestamp))
             .and_then(|x| x.value)
             .and_then(|x| x.try_into().ok());
 
-        let color = body.main_component.color_control.and_then(|x| {
-            let hue = x.hue.value?.try_into().ok()?;
-            let saturation = x.saturation.value?.try_into().ok()?;
+        let color = body
+            .main_component
+            .color_control
+            //.filter(|c| is_recent(c.hue.timestamp) && is_recent(c.saturation.timestamp))
+            .and_then(|x| {
+                let hue = x.hue.value?.try_into().ok()?;
+                let saturation = x.saturation.value?.try_into().ok()?;
 
-            Some(super::Color { hue, saturation })
-        });
+                Some(super::Color { hue, saturation })
+            });
 
         Ok(LightStatus::Online(LightOptions {
             switched_on,
@@ -163,129 +190,110 @@ impl SmartHomeApi for SmartThings {
     }
 
     async fn set_switched_on(&self, id: &str, switched_on: bool) -> super::Result<()> {
-        Self::validate_device_id(id)?;
-        let url = self
-            .base_url
-            .join(&format!("devices/{id}/commands"))
-            .map_err(|_| super::Error::InvalidId(id.to_string()))?;
-
-        let body = json!({
-            "commands": [{
-                "component": "main",
-                "capability": "switch",
-                "command": if switched_on { "on" } else { "off" },
-                "arguments": []
-            }]
-        });
-
-        let res = self.client.post(url).json(&body).send().await?;
-
-        Self::error_from_status(res)?;
-        Ok(())
+        let cmd = command_json!("switch", if switched_on { "on" } else { "off" });
+        self.send_command(id, cmd).await
     }
 
     async fn set_brightness(&self, id: &str, brightness: f32) -> super::Result<()> {
-        Self::validate_device_id(id)?;
-        let url = self
-            .base_url
-            .join(&format!("devices/{id}/commands"))
-            .map_err(|_| super::Error::InvalidId(id.to_string()))?;
-
         let switch_level = (brightness * 100.0).round().clamp(0f32, 100f32) as u8;
+        let cmd = command_json!("switchLevel", "setLevel", [switch_level, 20]);
+        self.send_command(id, cmd).await
+    }
 
-        let body = json!({
-            "commands": [{
-                "component": "main",
-                "capability": "switchLevel",
-                "command": "setLevel",
-                "arguments": [switch_level, 20]
-            }]
-        });
+    async fn set_color_temperature(&self, id: &str, temp: u16) -> super::Result<()> {
+        let cmd = command_json!("colorTemperature", "setColorTemperature", [temp]);
+        self.send_command(id, cmd).await
+    }
 
-        let res = self.client.post(url).json(&body).send().await?;
+    async fn set_color(&self, id: &str, hue: u8, saturation: u8) -> super::Result<()> {
+        let cmd = command_json!(
+            "colorControl", "setColor", [{ "hue": hue, "saturation": saturation }]);
 
-        Self::error_from_status(res)?;
-        Ok(())
+        self.send_command(id, cmd).await
     }
 }
+pub(super) mod api_models {
+    use serde::Deserialize;
+    use serde_flat_path::flat_path;
 
-#[derive(Deserialize, Debug)]
-struct ColorControlStatus {
-    hue: ColorComponentStatus,
-    saturation: ColorComponentStatus,
-}
-#[derive(Deserialize, Debug)]
-struct ColorComponentStatus {
-    #[serde(with = "time::serde::rfc3339::option")]
-    timestamp: Option<time::OffsetDateTime>,
-    value: Option<i32>,
-}
+    #[derive(Deserialize, Debug)]
+    pub struct ColorControlStatus {
+        pub hue: ColorComponentStatus,
+        pub saturation: ColorComponentStatus,
+    }
+    #[derive(Deserialize, Debug)]
+    pub struct ColorComponentStatus {
+        #[serde(with = "time::serde::rfc3339::option")]
+        pub timestamp: Option<time::OffsetDateTime>,
+        pub value: Option<i32>,
+    }
 
-#[derive(Deserialize, Debug)]
-struct ColorTemperatureStatus {
-    #[serde(with = "time::serde::rfc3339::option")]
-    timestamp: Option<time::OffsetDateTime>,
-    value: Option<i32>,
-    unit: Option<String>,
-}
-#[derive(Deserialize, Debug)]
-struct HealthCheckStatus {
-    #[serde(rename = "DeviceWatch-DeviceStatus")]
-    device_status: Option<DeviceWatchDeviceStatus>,
-}
-#[derive(Deserialize, Debug)]
-#[serde(rename_all = "camelCase")]
-enum DeviceStatusValue {
-    Offline,
-    Online,
-}
+    #[derive(Deserialize, Debug)]
+    pub struct ColorTemperatureStatus {
+        #[serde(with = "time::serde::rfc3339::option")]
+        pub timestamp: Option<time::OffsetDateTime>,
+        pub value: Option<i32>,
+        pub unit: Option<String>,
+    }
+    #[derive(Deserialize, Debug)]
+    pub struct HealthCheckStatus {
+        #[serde(rename = "DeviceWatch-DeviceStatus")]
+        pub device_status: Option<DeviceWatchDeviceStatus>,
+    }
+    #[derive(Deserialize, Debug)]
+    #[serde(rename_all = "camelCase")]
+    pub enum DeviceStatusValue {
+        Offline,
+        Online,
+    }
 
-#[derive(Deserialize, Debug)]
-struct DeviceWatchDeviceStatus {
-    value: Option<DeviceStatusValue>,
-    #[serde(with = "time::serde::rfc3339::option")]
-    timestamp: Option<time::OffsetDateTime>,
-}
-#[derive(Deserialize, PartialEq, Debug)]
-#[serde(rename_all = "camelCase")]
-enum SwitchState {
-    On,
-    Off,
-}
+    #[derive(Deserialize, Debug)]
+    pub struct DeviceWatchDeviceStatus {
+        pub value: Option<DeviceStatusValue>,
+        #[serde(with = "time::serde::rfc3339::option")]
+        pub timestamp: Option<time::OffsetDateTime>,
+    }
+    #[derive(Deserialize, PartialEq, Debug)]
+    #[serde(rename_all = "camelCase")]
+    pub enum SwitchState {
+        On,
+        Off,
+    }
 
-#[derive(Deserialize, Debug)]
-struct SwitchStatus {
-    value: Option<SwitchState>,
-    #[serde(with = "time::serde::rfc3339::option")]
-    timestamp: Option<time::OffsetDateTime>,
-}
+    #[derive(Deserialize, Debug)]
+    pub struct SwitchStatus {
+        pub value: Option<SwitchState>,
+        #[serde(with = "time::serde::rfc3339::option")]
+        pub timestamp: Option<time::OffsetDateTime>,
+    }
 
-#[derive(Deserialize, Debug)]
-struct SwitchLevelStatus {
-    value: i32,
-    #[serde(with = "time::serde::rfc3339::option")]
-    timestamp: Option<time::OffsetDateTime>,
-    unit: String,
-}
+    #[derive(Deserialize, Debug)]
+    pub struct SwitchLevelStatus {
+        pub value: i32,
+        #[serde(with = "time::serde::rfc3339::option")]
+        pub timestamp: Option<time::OffsetDateTime>,
+        pub unit: String,
+    }
 
-#[flat_path]
-#[derive(Deserialize, Debug)]
-#[serde(rename_all = "camelCase")]
-struct ComponentStatus {
-    color_control: Option<ColorControlStatus>,
-    #[flat_path("colorTemperature.colorTemperature")]
-    color_temperature: Option<ColorTemperatureStatus>,
-    health_check: Option<HealthCheckStatus>,
-    #[flat_path("switch.switch")]
-    switch: Option<SwitchStatus>,
-    #[flat_path("switchLevel.level")]
-    switch_level: Option<SwitchLevelStatus>,
-}
+    #[flat_path]
+    #[derive(Deserialize, Debug)]
+    #[serde(rename_all = "camelCase")]
+    pub struct ComponentStatus {
+        pub color_control: Option<ColorControlStatus>,
+        #[flat_path("colorTemperature.colorTemperature")]
+        pub color_temperature: Option<ColorTemperatureStatus>,
+        pub health_check: Option<HealthCheckStatus>,
+        #[flat_path("switch.switch")]
+        pub switch: Option<SwitchStatus>,
+        #[flat_path("switchLevel.level")]
+        pub switch_level: Option<SwitchLevelStatus>,
+    }
 
-#[flat_path]
-#[derive(Deserialize, Debug)]
-#[serde(rename_all = "camelCase")]
-struct DeviceStatus {
-    #[flat_path("components.main")]
-    main_component: ComponentStatus,
+    #[flat_path]
+    #[derive(Deserialize, Debug)]
+    #[serde(rename_all = "camelCase")]
+    pub(super) struct DeviceStatus {
+        #[flat_path("components.main")]
+        pub main_component: ComponentStatus,
+    }
 }

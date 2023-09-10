@@ -52,6 +52,10 @@ pub trait SmartHomeApi: Send + Sync {
     async fn set_switched_on(&self, id: &str, switched_on: bool) -> Result<()>;
 
     async fn set_brightness(&self, id: &str, brightness: f32) -> Result<()>;
+
+    async fn set_color_temperature(&self, id: &str, color_temp: u16) -> Result<()>;
+
+    async fn set_color(&self, id: &str, hue: u8, saturation: u8) -> Result<()>;
 }
 
 pub fn get_smart_home_api(config: Arc<Config>) -> Result<Arc<dyn SmartHomeApi + Send + Sync>> {

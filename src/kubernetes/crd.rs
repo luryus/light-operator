@@ -1,3 +1,5 @@
+use std::fmt::Display;
+
 use kube::CustomResource;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
@@ -5,9 +7,15 @@ use serde::{Deserialize, Serialize};
 #[derive(Deserialize, Serialize, Clone, Debug, JsonSchema)]
 pub struct Color {
     #[schemars(range(min = 0, max = 100))]
-    hue: u8,
+    pub hue: u8,
     #[schemars(range(min = 0, max = 100))]
-    saturation: u8,
+    pub saturation: u8,
+}
+
+impl Display for Color {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "(hue {}, saturation {})", self.hue, self.saturation)
+    }
 }
 
 #[derive(CustomResource, Deserialize, Serialize, Clone, Debug, JsonSchema)]
