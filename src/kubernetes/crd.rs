@@ -5,22 +5,32 @@ use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
 #[derive(Deserialize, Serialize, Clone, Debug, JsonSchema)]
-pub struct Color {
+pub struct HueSaturationColor {
+    /// Hue 0-100 (percentage)
     #[schemars(range(min = 0, max = 100))]
     pub hue: u8,
+    /// Saturation 0-100 (percentage)
     #[schemars(range(min = 0, max = 100))]
     pub saturation: u8,
 }
 
-impl Display for Color {
+impl Display for HueSaturationColor {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "(hue {}, saturation {})", self.hue, self.saturation)
     }
 }
 
+#[derive(Deserialize, Serialize, Clone, Debug, JsonSchema)]
+#[serde(rename_all="camelCase")]
+pub enum Color {
+    ColorTemperature(#[schemars(range(min = 1, max = 60_000))] u16),
+    HueSaturation(HueSaturationColor)
+}
+
 #[derive(CustomResource, Deserialize, Serialize, Clone, Debug, JsonSchema)]
 #[kube(
     kind = "Light",
+    shortname = "li",
     group = "lightcontroller.lkoskela.com",
     version = "v1alpha1",
     namespaced
@@ -30,17 +40,14 @@ impl Display for Color {
 pub struct LightSpec {
     /// Device id
     pub device_id: String,
-    // Is the light on or off
+    /// Is the light on or off
     pub active: bool,
 
-    // RGB color
     pub color: Option<Color>,
-    // Color temperature in Kelvin,
-    #[schemars(range(min = 1, max = 60_000))]
-    pub color_temperature: Option<u16>,
-    // Brightness 0-1
-    #[schemars(range(min = 0, max = 1))]
-    pub brightness: Option<f32>,
+    
+    /// Brightness 0-100 (percentage)
+    #[schemars(range(min = 0, max = 100))]
+    pub brightness: Option<u8>,
 }
 
 #[derive(Deserialize, Serialize, Clone, Debug, JsonSchema)]

@@ -40,7 +40,7 @@ pub enum LightStatus {
 #[derive(Debug)]
 pub struct LightOptions {
     pub switched_on: bool,
-    pub brightness: Option<f32>,
+    pub brightness: Option<u8>,
     pub color_temperature: Option<u16>,
     pub color: Option<Color>,
 }
@@ -51,7 +51,7 @@ pub trait SmartHomeApi: Send + Sync {
 
     async fn set_switched_on(&self, id: &str, switched_on: bool) -> Result<()>;
 
-    async fn set_brightness(&self, id: &str, brightness: f32) -> Result<()>;
+    async fn set_brightness(&self, id: &str, brightness: u8) -> Result<()>;
 
     async fn set_color_temperature(&self, id: &str, color_temp: u16) -> Result<()>;
 

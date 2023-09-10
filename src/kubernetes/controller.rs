@@ -8,6 +8,7 @@ use kube::{
 
 use crate::{
     config::Config,
+    kubernetes::crd::Color,
     smarthome::{self, LightStatus, SmartHomeApi},
 };
 
@@ -74,25 +75,28 @@ pub async fn reconcile(light: Arc<Light>, ctx: Arc<Context>) -> Result<Action, E
             }
         }
 
-        if let Some(target_temp) = light.spec.color_temperature {
-            if Some(target_temp) != light_options.color_temperature {
-                tracing::info!("Setting color temperature to {target_temp} K");
-                ctx.smart_home_api
-                    .set_color_temperature(id, target_temp)
-                    .await?;
+        match light.spec.color.as_ref() {
+            Some(&Color::ColorTemperature(target_temp)) => {
+                if Some(target_temp) != light_options.color_temperature {
+                    tracing::info!("Setting color temperature to {target_temp} K");
+                    ctx.smart_home_api
+                        .set_color_temperature(id, target_temp)
+                        .await?;
+                }
             }
-        }
-
-        if let Some(target_color) = &light.spec.color {
-            if Some(target_color.hue) != light_options.color.as_ref().map(|x| x.hue)
-                || Some(target_color.saturation) != light_options.color.as_ref().map(|x| x.saturation)
-            {
-                tracing::info!("Setting color to {target_color}");
-                ctx.smart_home_api
-                    .set_color(id, target_color.hue, target_color.saturation)
-                    .await?;
+            Some(Color::HueSaturation(target_hue_sat)) => {
+                if Some(target_hue_sat.hue) != light_options.color.as_ref().map(|x| x.hue)
+                    || Some(target_hue_sat.saturation)
+                        != light_options.color.as_ref().map(|x| x.saturation)
+                {
+                    tracing::info!("Setting color to {target_hue_sat}");
+                    ctx.smart_home_api
+                        .set_color(id, target_hue_sat.hue, target_hue_sat.saturation)
+                        .await?;
+                }
             }
-        }
+            None => (),
+        };
     }
 
     Ok(Action::requeue(Duration::from_secs(

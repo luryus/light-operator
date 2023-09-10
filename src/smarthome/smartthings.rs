@@ -161,7 +161,7 @@ impl SmartHomeApi for SmartThings {
             .main_component
             .switch_level
             //.filter(|x| is_recent(x.timestamp))
-            .map(|x| (x.value as f32 / 100f32).clamp(0.0, 1.0));
+            .and_then(|x| x.value.clamp(0, 100).try_into().ok());
 
         let color_temperature = body
             .main_component
@@ -194,8 +194,8 @@ impl SmartHomeApi for SmartThings {
         self.send_command(id, cmd).await
     }
 
-    async fn set_brightness(&self, id: &str, brightness: f32) -> super::Result<()> {
-        let switch_level = (brightness * 100.0).round().clamp(0f32, 100f32) as u8;
+    async fn set_brightness(&self, id: &str, brightness: u8) -> super::Result<()> {
+        let switch_level = brightness.clamp(0, 100);
         let cmd = command_json!("switchLevel", "setLevel", [switch_level, 20]);
         self.send_command(id, cmd).await
     }
