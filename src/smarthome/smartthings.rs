@@ -43,6 +43,7 @@ macro_rules! command_json {
     };
 }
 
+#[allow(dead_code)]
 fn is_recent(ts: Option<OffsetDateTime>) -> bool {
     match ts {
         None => false,
