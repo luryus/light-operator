@@ -1,3 +1,4 @@
 /target
-config.local.yaml
-crd.yaml
+/config.local.yaml
+/crd.yaml
+/testdata
