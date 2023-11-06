@@ -1,10 +1,11 @@
-use anyhow::Context;
+use anyhow::{anyhow, Context};
 use config::{Environment, File, FileFormat};
-use light_operator::config::Config;
 use light_operator::kubernetes::controller::run;
 use light_operator::smarthome;
+use light_operator::{config::Config, health_check};
 use std::sync::Arc;
 use tracing_subscriber::{prelude::*, EnvFilter, Registry};
+use std::future::pending;
 
 #[tokio::main]
 async fn main() -> Result<(), anyhow::Error> {
@@ -15,7 +16,6 @@ async fn main() -> Result<(), anyhow::Error> {
         .build()
         .expect("Configuration parsing failed");
 
-    println!("Config: {:#?}", conf);
     let config: Config = conf.try_deserialize().unwrap();
     let config = Arc::new(config);
 
@@ -27,8 +27,28 @@ async fn main() -> Result<(), anyhow::Error> {
     let smart_home_api =
         smarthome::get_smart_home_api(config.clone()).context("Smart home API init failed")?;
 
+    let health_join_handle = if config.health_check.enable_server {
+        let c = config.clone();
+        tokio::spawn(health_check::run(c))
+    } else {
+        tokio::spawn(pending())
+    };
+
     tracing::info!("Starting controller");
-    run(config, smart_home_api)
-        .await
-        .context("Controller error")
+    let controller_join_handle = tokio::spawn(run(config, smart_home_api));
+
+    tokio::select! {
+        res = controller_join_handle => match res {
+            Ok(inner) => inner.context("Controller error"),
+            Err(e) => Err(anyhow!(e))
+        },
+        res = health_join_handle => match res {
+            Ok(inner) => inner.context("Health check server error"),
+            Err(e) => Err(anyhow!(e))
+        },
+        _ = tokio::signal::ctrl_c() => Ok(())
+    }?;
+
+    tracing::info!("Exiting...");
+    Ok(())
 }

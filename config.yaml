@@ -9,3 +9,7 @@ controller:
 
 log:
   filters: info
+
+health_check:
+  enable_server: true
+  port: 8080

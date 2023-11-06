@@ -32,4 +32,11 @@ pub struct Config {
     pub smart_home: SmartHomeConfig,
     pub controller: ControllerConfig,
     pub log: LogConfig,
+    pub health_check: HealthCheckConfig,
+}
+
+#[derive(Deserialize)]
+pub struct HealthCheckConfig {
+    pub enable_server: bool,
+    pub port: u16
 }
