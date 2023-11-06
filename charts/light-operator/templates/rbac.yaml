@@ -1,0 +1,30 @@
+{{ if .Values.rbac.create -}}
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: {{ include "light-operator.fullname" . }}
+  labels:
+    {{- include "light-operator.labels" . | nindent 4 }}
+rules:
+- apiGroups: ["light-operator.lkoskela.com"]
+  resources: ["lights"]
+  verbs: ["get", "watch", "list"]
+- apiGroups: ["light-operator.lkoskela.com"]
+  resources: ["lights/status"]
+  verbs: ["get", "watch", "list", "update", "create", "patch", "delete"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: {{ include "light-operator.fullname" . }}
+  labels:
+    {{- include "light-operator.labels" . | nindent 4 }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: {{ include "light-operator.fullname" . }}
+subjects:
+- name: {{ template "light-operator.serviceAccountName" . }}
+  namespace: {{ .Release.Namespace }}
+  kind: ServiceAccount
+{{- end -}}
