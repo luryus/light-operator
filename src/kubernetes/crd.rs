@@ -5,9 +5,9 @@ use kube::CustomResource;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
-pub const API_GROUP: &str = "lightcontroller.lkoskela.com";
+pub const API_GROUP: &str = "light-operator.lkoskela.com";
 pub const API_VERSION: &str = "v1alpha1";
-pub const API_VERSION_FULL: &str = "lightcontroller.lkoskela.com/v1alpha1";
+pub const API_VERSION_FULL: &str = "light-operator.lkoskela.com/v1alpha1";
 
 #[derive(Deserialize, Serialize, Clone, Debug, JsonSchema)]
 pub struct HueSaturationColor {
@@ -37,7 +37,7 @@ pub enum Color {
     namespaced,
     kind = "Light",
     shortname = "li",
-    group = "lightcontroller.lkoskela.com",
+    group = "light-operator.lkoskela.com",
     version = "v1alpha1",
     printcolumn = r#"{"name": "Ready", "type": "string", "jsonPath": ".status.conditions[?(@.type==\"Ready\")].status"}"#,
     printcolumn = r#"{"name": "Status", "type": "string", "jsonPath": ".status.conditions[?(@.type==\"Ready\")].message", "priority": 1}"#,
