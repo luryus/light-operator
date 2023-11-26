@@ -1,0 +1,53 @@
+name: Main
+
+on:
+  workflow_dispatch:
+  push:
+    tags: [ '*' ]
+
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  images:
+    name: Create container images
+    runs-on: ubuntu-22.04
+
+    steps:
+    - uses: actions/checkout@v4
+    - uses: dtolnay/rust-toolchain@stable
+
+    # Install required dependencies for cross-platform image builds
+    - run: |-
+        sudo apt-get update
+        sudo apt-get install -y qemu-user-static
+
+    # Set tag based on the commit/tag
+    - run: |-
+        echo "VERSION_TAG=${GITHUB_SHA}" >> "$GITHUB_ENV"
+      if: startsWith(github.ref, 'refs/tags/')
+    - run: |-
+        echo "VERSION_TAG=$(cargo metadata --no-deps --format-version 1 | jq -r .packages[0].version)" >> "$GITHUB_ENV"
+      if: ${{ ! startsWith(github.ref, 'refs/tags/') }}
+    
+    # Build images
+    - name: Buildah
+      id: buildah
+      uses: redhat-actions/buildah-build@v2
+      with:
+        image: ghcr.io/luryus/light-operator
+        tags: $VERSION_TAG
+        containerfiles: |
+          ./Containerfile
+        platforms: linux/amd64, linux/aarch64
+    
+    # Push images
+    - name: Push images
+      uses: redhat-actions/push-to-registry@v2
+      with:
+        image: ${{ steps.buildah.outputs.image }}
+        tags: ${{ steps.buildah.outputs.tags }}
+        registry: ghcr.io
+        username: ${{ github.actor }}
+        authfile: ${{ github.token }}
