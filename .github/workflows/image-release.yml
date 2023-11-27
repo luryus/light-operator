@@ -23,8 +23,8 @@ jobs:
 
     # Install required dependencies for cross-platform image builds
     - run: |-
-        sudo apt-get update
-        sudo apt-get install -y qemu-user-static buildah binfmt-support curl
+        apt-get update
+        apt-get install -y qemu-user-static buildah binfmt-support curl
 
     - uses: dtolnay/rust-toolchain@stable
 
