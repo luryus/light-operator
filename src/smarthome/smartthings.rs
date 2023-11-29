@@ -140,7 +140,7 @@ impl SmartHomeApi for SmartThings {
         tracing::debug!("Got status {body:#?}");
 
         let online = body
-            .main_component
+            .components.main
             .health_check
             .and_then(|x| x.device_status)
             .map(|x| matches!(x.value, Some(DeviceStatusValue::Online)))
@@ -151,7 +151,7 @@ impl SmartHomeApi for SmartThings {
         }
 
         let switched_on = body
-            .main_component
+            .components.main
             .switch
             //.filter(|x| is_recent(x.timestamp))
             .and_then(|x| x.value)
@@ -159,20 +159,21 @@ impl SmartHomeApi for SmartThings {
             .unwrap_or(false);
 
         let brightness = body
-            .main_component
+            .components.main
             .switch_level
             //.filter(|x| is_recent(x.timestamp))
-            .and_then(|x| x.value.clamp(0, 100).try_into().ok());
+            .and_then(|x| x.value)
+            .and_then(|x| x.clamp(0, 100).try_into().ok());
 
         let color_temperature = body
-            .main_component
+            .components.main
             .color_temperature
             //.filter(|x| is_recent(x.timestamp))
             .and_then(|x| x.value)
             .and_then(|x| x.try_into().ok());
 
         let color = body
-            .main_component
+            .components.main
             .color_control
             //.filter(|c| is_recent(c.hue.timestamp) && is_recent(c.saturation.timestamp))
             .and_then(|x| {
@@ -222,21 +223,24 @@ pub(super) mod api_models {
         pub hue: ColorComponentStatus,
         pub saturation: ColorComponentStatus,
     }
-    #[derive(Deserialize, Debug)]
+    #[derive(Deserialize, Debug, Default)]
+    #[serde(default)]
     pub struct ColorComponentStatus {
         #[serde(with = "time::serde::rfc3339::option")]
         pub timestamp: Option<time::OffsetDateTime>,
         pub value: Option<i32>,
     }
 
-    #[derive(Deserialize, Debug)]
+    #[derive(Deserialize, Debug, Default)]
+    #[serde(default)]
     pub struct ColorTemperatureStatus {
         #[serde(with = "time::serde::rfc3339::option")]
         pub timestamp: Option<time::OffsetDateTime>,
         pub value: Option<i32>,
         pub unit: Option<String>,
     }
-    #[derive(Deserialize, Debug)]
+    #[derive(Deserialize, Debug, Default)]
+    #[serde(default)]
     pub struct HealthCheckStatus {
         #[serde(rename = "DeviceWatch-DeviceStatus")]
         pub device_status: Option<DeviceWatchDeviceStatus>,
@@ -248,12 +252,14 @@ pub(super) mod api_models {
         Online,
     }
 
-    #[derive(Deserialize, Debug)]
+    #[derive(Deserialize, Debug, Default)]
+    #[serde(default)]
     pub struct DeviceWatchDeviceStatus {
         pub value: Option<DeviceStatusValue>,
         #[serde(with = "time::serde::rfc3339::option")]
         pub timestamp: Option<time::OffsetDateTime>,
     }
+
     #[derive(Deserialize, PartialEq, Debug)]
     #[serde(rename_all = "camelCase")]
     pub enum SwitchState {
@@ -261,24 +267,26 @@ pub(super) mod api_models {
         Off,
     }
 
-    #[derive(Deserialize, Debug)]
+    #[derive(Deserialize, Debug, Default)]
+    #[serde(default)]
     pub struct SwitchStatus {
         pub value: Option<SwitchState>,
         #[serde(with = "time::serde::rfc3339::option")]
         pub timestamp: Option<time::OffsetDateTime>,
     }
 
-    #[derive(Deserialize, Debug)]
+    #[derive(Deserialize, Debug, Default)]
+    #[serde(default)]
     pub struct SwitchLevelStatus {
-        pub value: i32,
+        pub value: Option<i32>,
         #[serde(with = "time::serde::rfc3339::option")]
         pub timestamp: Option<time::OffsetDateTime>,
         pub unit: String,
     }
 
     #[flat_path]
-    #[derive(Deserialize, Debug)]
-    #[serde(rename_all = "camelCase")]
+    #[derive(Deserialize, Debug, Default)]
+    #[serde(rename_all = "camelCase", default)]
     pub struct ComponentStatus {
         pub color_control: Option<ColorControlStatus>,
         #[flat_path("colorTemperature.colorTemperature")]
@@ -290,11 +298,18 @@ pub(super) mod api_models {
         pub switch_level: Option<SwitchLevelStatus>,
     }
 
-    #[flat_path]
-    #[derive(Deserialize, Debug)]
+    #[derive(Deserialize, Debug, Default)]
+    #[serde(rename_all = "camelCase")]
+    pub(super) struct DeviceComponentStatuses {
+        #[serde(default)]
+        pub main: ComponentStatus,
+    }
+
+
+    #[derive(Deserialize, Debug, Default)]
     #[serde(rename_all = "camelCase")]
     pub(super) struct DeviceStatus {
-        #[flat_path("components.main")]
-        pub main_component: ComponentStatus,
+        #[serde(default)]
+        pub components: DeviceComponentStatuses,
     }
 }
