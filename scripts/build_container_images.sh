@@ -26,3 +26,11 @@ for i in "${!architectures[@]}"; do
         --platform "linux/${architectures[$i]}" \
         -t "${registry_tag}light-controller:$VERSION_TAG-${architectures[$i]//\//_}" .
 done
+
+# Create manifest list
+podman manifest create --amend "${registry_tag}light-controller:$VERSION_TAG" \
+    "containers-storage:${registry_tag}light-controller:$VERSION_TAG-amd64" \
+    "containers-storage:${registry_tag}light-controller:$VERSION_TAG-arm_v7" \
+    "containers-storage:${registry_tag}light-controller:$VERSION_TAG-aarch64"
+
+echo "Created manifest \"${registry_tag}light-controller:$VERSION_TAG\""
