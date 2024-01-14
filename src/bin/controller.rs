@@ -19,7 +19,7 @@ async fn main() -> Result<(), anyhow::Error> {
     let config: Config = conf.try_deserialize().unwrap();
     let config = Arc::new(config);
 
-    let logger = tracing_subscriber::fmt::layer().pretty();
+    let logger = tracing_subscriber::fmt::layer().compact();
     let env_filter = EnvFilter::try_new(&config.log.filters).unwrap();
     let collector = Registry::default().with(logger).with(env_filter);
     tracing::subscriber::set_global_default(collector).unwrap();
