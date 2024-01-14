@@ -40,7 +40,7 @@ spec:
                 name: {{ template "light-operator.fullname" . }}
           livenessProbe:
             httpGet:
-              path: /
+              path: /healthz
               port: http-health
           resources:
             {{- toYaml .Values.resources | nindent 12 }}
