@@ -104,19 +104,14 @@ pub async fn reconcile(light: Arc<Light>, ctx: Arc<Context>) -> Result<Action, E
     update_conditions(&mut conds, invalid_cond);
 
     if let LightStatus::Online(light_options) = status {
-        if light_options.switched_on != light.spec.state.is_switched_on() {
-            tracing::info!("Setting light switched on status to {:?}", light.spec.state);
-            ctx.smart_home_api
-                .set_switched_on(id, light.spec.state.into())
-                .await?;
-        }
-
+        let mut changes_made = false;
         if let Some(target_brightness) = light.spec.brightness {
             if Some(target_brightness) != light_options.brightness {
                 tracing::info!("Setting light brightness to {target_brightness}");
                 ctx.smart_home_api
                     .set_brightness(id, target_brightness)
                     .await?;
+                changes_made = true;
             }
         }
 
@@ -127,6 +122,7 @@ pub async fn reconcile(light: Arc<Light>, ctx: Arc<Context>) -> Result<Action, E
                     ctx.smart_home_api
                         .set_color_temperature(id, target_temp)
                         .await?;
+                    changes_made = true;
                 }
             }
             Some(Color::HueSaturation(target_hue_sat)) => {
@@ -138,10 +134,18 @@ pub async fn reconcile(light: Arc<Light>, ctx: Arc<Context>) -> Result<Action, E
                     ctx.smart_home_api
                         .set_color(id, target_hue_sat.hue, target_hue_sat.saturation)
                         .await?;
+                    changes_made = true;
                 }
             }
             None => (),
         };
+
+        if light_options.switched_on != light.spec.state.is_switched_on() || changes_made {
+            tracing::info!("Setting light switched on status to {:?}", light.spec.state);
+            ctx.smart_home_api
+                .set_switched_on(id, light.spec.state.into())
+                .await?;
+        }
 
         let ready_cond = ready_condition(Some(true), "DeviceOnline", None, light.metadata.generation);
         update_conditions(&mut conds, ready_cond);
