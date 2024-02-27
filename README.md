@@ -83,7 +83,9 @@ Unfortunately, light-operator does not currently support crafting physical light
 
 ###### Does it support blue-green deployments?
 Sure!<sup>*</sup>
-`<video>`
+
+![blue-green](https://github.com/luryus/light-operator/assets/287814/0e14161f-fc4f-4bf8-ba9f-c75bd22f542c)
+
 
 <sup>*With compatible RGB bulbs</sup>
 
