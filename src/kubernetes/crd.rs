@@ -36,7 +36,7 @@ pub enum Color {
 #[derive(Deserialize, Serialize, Clone, Copy, Debug, JsonSchema)]
 #[serde(rename_all="PascalCase")]
 pub enum LightState {
-  On, Off
+  SwitchedOn, SwitchedOff
 }
 
 impl From<LightState> for bool {
@@ -48,8 +48,8 @@ impl From<LightState> for bool {
 impl LightState {
   pub fn is_switched_on(&self) -> bool {
     match self {
-      LightState::Off => false,
-      LightState::On => true
+      LightState::SwitchedOff => false,
+      LightState::SwitchedOn => true
     }
   }
 }
