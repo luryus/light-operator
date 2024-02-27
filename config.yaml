@@ -2,7 +2,7 @@ smart_home:
   platform: SmartThings
 
   smartthings:
-    api_key: 
+    api_token: 
 
 controller:
   sync_interval_seconds: 60

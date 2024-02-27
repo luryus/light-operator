@@ -14,7 +14,7 @@ pub struct SmartHomeConfig {
 
 #[derive(Default, Deserialize)]
 pub struct SmartThingsConfig {
-    pub api_key: Option<String>,
+    pub api_token: Option<String>,
 }
 
 #[derive(Deserialize)]

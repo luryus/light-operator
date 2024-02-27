@@ -53,16 +53,16 @@ fn is_recent(ts: Option<OffsetDateTime>) -> bool {
 
 impl SmartThings {
     pub fn new(config: Arc<Config>) -> super::Result<Self> {
-        let Some(api_key) = &config.smart_home.smartthings.api_key else {
+        let Some(api_token) = &config.smart_home.smartthings.api_token else {
             return Err(super::Error::Configuration(
-                "SmartThings API key not configured".to_string(),
+                "SmartThings API token not configured".to_string(),
             ));
         };
 
         let mut auth_header = HeaderMap::new();
         auth_header.append(
             "Authorization",
-            format!("Bearer {}", api_key).parse().unwrap(),
+            format!("Bearer {}", api_token).parse().unwrap(),
         );
 
         let client = reqwest::ClientBuilder::new()
