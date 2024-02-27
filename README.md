@@ -61,7 +61,7 @@ spec:
   color:
     # Either colorTemperature or hueSaturation must be specified
 
-	  # Light color temperature, 1-60000 K
+    # Light color temperature, 1-60000 K
     colorTemperature: 2700
 
     # Color hue+saturation
