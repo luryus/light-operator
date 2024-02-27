@@ -24,6 +24,9 @@ With light-operator, you can finally solve configuration drift issues with your 
 1. Have SmartThings-compatible light bulbs installed and integrated to your SmartThings account
 2. Generate a SmartThings API key here: https://account.smartthings.com/tokens
 3. Install light-operator with Helm:
+  ```bash
+  helm install my-light-operator oci://ghcr.io/luryus/charts/light-operator
+  ```
 4. Define the state of your bulb in a YAML file:
 	```yaml
 	apiVersion: light-operator.lkoskela.com/v1alpha1
