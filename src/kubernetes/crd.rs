@@ -64,7 +64,7 @@ impl LightState {
     printcolumn = r#"{"name": "Ready", "type": "string", "jsonPath": ".status.conditions[?(@.type==\"Ready\")].status"}"#,
     printcolumn = r#"{"name": "Status", "type": "string", "jsonPath": ".status.conditions[?(@.type==\"Ready\")].message", "priority": 1}"#,
     printcolumn = r#"{"name": "Age", "type": "date", "jsonPath": ".metadata.creationTimestamp"}"#,
-    printcolumn = r#"{"name": "Switched on", "type": "string", "jsonPath": ".spec.active"}"#,
+    printcolumn = r#"{"name": "Switched on", "type": "string", "jsonPath": ".spec.state"}"#,
 )]
 #[kube(status = "LightStatus")]
 #[serde(rename_all = "camelCase")]
