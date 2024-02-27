@@ -25,7 +25,7 @@ With light-operator, you can finally solve configuration drift issues with your 
 2. Generate a SmartThings API token here: https://account.smartthings.com/tokens. Make sure to add all the devices scopes (list all devices, see all devices, manage all devices & control all devices).
 3. Install light-operator with Helm:
     ```
-    helm install my-light-operator oci://ghcr.io/luryus/charts/light-operator --set-string --set-string "smarthome.smartthings.apiToken=<your api token>"
+    helm install my-light-operator oci://ghcr.io/luryus/charts/light-operator --set-string "smarthome.smartthings.apiToken=<your api token>"
     ```
 4. Define the state of your bulb in a YAML file:
     ```yaml
