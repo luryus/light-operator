@@ -34,9 +34,6 @@ spec:
         properties:
           spec:
             properties:
-              active:
-                description: Is the light on or off
-                type: boolean
               brightness:
                 description: Brightness 0-100 (percentage)
                 format: uint8
@@ -79,9 +76,15 @@ spec:
               deviceId:
                 description: Device id
                 type: string
+              state:
+                description: Is the light on or off
+                enum:
+                - On
+                - Off
+                type: string
             required:
-            - active
             - deviceId
+            - state
             type: object
           status:
             nullable: true

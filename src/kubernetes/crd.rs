@@ -32,6 +32,28 @@ pub enum Color {
     HueSaturation(HueSaturationColor)
 }
 
+
+#[derive(Deserialize, Serialize, Clone, Copy, Debug, JsonSchema)]
+#[serde(rename_all="PascalCase")]
+pub enum LightState {
+  On, Off
+}
+
+impl From<LightState> for bool {
+    fn from(value: LightState) -> Self {
+        value.is_switched_on()
+    }
+}
+
+impl LightState {
+  pub fn is_switched_on(&self) -> bool {
+    match self {
+      LightState::Off => false,
+      LightState::On => true
+    }
+  }
+}
+
 #[derive(CustomResource, Deserialize, Serialize, Clone, Debug, JsonSchema)]
 #[kube(
     namespaced,
@@ -50,7 +72,7 @@ pub struct LightSpec {
     /// Device id
     pub device_id: String,
     /// Is the light on or off
-    pub active: bool,
+    pub state: LightState,
 
     pub color: Option<Color>,
     

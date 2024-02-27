@@ -104,10 +104,10 @@ pub async fn reconcile(light: Arc<Light>, ctx: Arc<Context>) -> Result<Action, E
     update_conditions(&mut conds, invalid_cond);
 
     if let LightStatus::Online(light_options) = status {
-        if light_options.switched_on != light.spec.active {
-            tracing::info!("Setting light switched on status to {}", light.spec.active);
+        if light_options.switched_on != light.spec.state.is_switched_on() {
+            tracing::info!("Setting light switched on status to {:?}", light.spec.state);
             ctx.smart_home_api
-                .set_switched_on(id, light.spec.active)
+                .set_switched_on(id, light.spec.state.into())
                 .await?;
         }
 
